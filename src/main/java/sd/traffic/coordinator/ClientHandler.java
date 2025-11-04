@@ -13,9 +13,8 @@ import java.net.Socket;
 /**
  * Thread por cliente (segue a ficha de servidor TCP multi-thread):
  *  - Lê linhas JSON do cliente
- *  - Decodifica em Message<T> pelo campo 'type'
  *  - Trata: REGISTER, TELEMETRY, EVENT_LOG, POLICY_UPDATE
- *  - Responde com JSON em linha única (println)
+ *  - Responde com JSON em linha única
  */
 public class ClientHandler extends Thread {
 
@@ -56,12 +55,20 @@ public class ClientHandler extends Thread {
                     }
                     case "TELEMETRY": {
                         TelemetryPayload tel = gson.fromJson(gson.toJson(base.getPayload()), TelemetryPayload.class);
-                        // Nesta fase: só imprimir no console
+                        // Nesta fase: só imprimir na consola
                         System.out.println("[Telemetry] " + tel);
-                        // ACK opcional
+
+                        server.appendEvent(gson.toJson(new EventLogEntry(
+                                "TELEMETRY",
+                                0.0,
+                                tel.getCrossing(),
+                                gson.toJson(tel)
+                        )));
+
                         out.println(gson.toJson(new Message<>("ACK", "TELEMETRY_OK")));
                         break;
                     }
+
                     case "EVENT_LOG": {
                         EventLogEntry ev = gson.fromJson(gson.toJson(base.getPayload()), EventLogEntry.class);
                         // Guardar 1 linha JSON crua no ficheiro (mantém eventos para o relatório)
@@ -87,3 +94,5 @@ public class ClientHandler extends Thread {
         }
     }
 }
+
+

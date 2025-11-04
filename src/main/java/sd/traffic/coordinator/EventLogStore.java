@@ -6,9 +6,8 @@ import java.io.IOException;
 /**
  * Store de eventos extremamente simples:
  *  - Escreve cada evento (string JSON) numa linha do ficheiro (append)
- *  - Não usa libs adicionais (cumpre a ficha)
- *  - Thread-safe via "synchronized" no método append
  */
+
 public class EventLogStore {
 
     private final String path;

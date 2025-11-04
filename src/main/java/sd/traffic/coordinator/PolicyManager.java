@@ -6,8 +6,8 @@ import java.nio.file.Paths;
 
 /**
  * Carrega o policy_hybrid.json para string (sem parse nesta fase).
- * Mantemos simples para bater com as fichas (I/O básico + strings).
  */
+
 public class PolicyManager {
 
     private static final String POLICY_PATH = "src/main/resources/config/policy_hybrid.json";

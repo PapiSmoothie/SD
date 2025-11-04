@@ -2,7 +2,6 @@ package sd.traffic.coordinator;
 
 import com.google.gson.Gson;
 import sd.traffic.coordinator.models.RegisterRequest;
-import sd.traffic.common.Message;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -15,10 +14,10 @@ import java.util.Map;
  * Servidor central (Coordinator).
  * - Ouve em TCP:6000 (ServerSocket)
  * - Aceita vários clientes (Crossings, Dashboard, Entry, Sink)
- * - Para cada ligação, lança uma Thread (ClientHandler) [modelo multi-thread "um cliente = uma thread"]
+ * - Para cada ligação, lança uma Thread (ClientHandler)
  * - Mantém registo simples de nós registados (id -> Socket)
  *
- * Fase 1 entrega: receber REGISTER, TELEMETRY, EVENT_LOG, responder a POLICY_UPDATE quando pedido.
+ * Até agora: receber REGISTER, TELEMETRY, EVENT_LOG, responder a POLICY_UPDATE quando pedido.
  */
 public class CoordinatorServer {
 
@@ -33,7 +32,7 @@ public class CoordinatorServer {
     /** Gestor de políticas: lê policy_hybrid.json e fornece JSON a enviar. */
     private final PolicyManager policyManager = new PolicyManager();
 
-    /** Store de eventos: append em logs/events.json (simples, linha a linha). */
+    /** Store de eventos: append em logs/events.json */
     private final EventLogStore eventLogStore = new EventLogStore("src/main/resources/logs/events.json");
 
     public static void main(String[] args) {
@@ -47,7 +46,7 @@ public class CoordinatorServer {
             while (true) {
                 Socket socket = serverSocket.accept();
                 System.out.println("[Coordinator] Nova ligação de " + socket.getRemoteSocketAddress());
-                // Lançar uma thread por cliente (modelo das fichas)
+                // Lançar uma thread por cliente
                 new ClientHandler(socket, this).start();
             }
         } catch (IOException e) {
@@ -56,7 +55,7 @@ public class CoordinatorServer {
         }
     }
 
-    /** Regista um nó (ex.: "Cr1", "Dashboard", "Entry-E1", "Sink") */
+    /** Regista um nó */
     public void onRegister(RegisterRequest req, Socket socket) {
         if (req == null || req.getNodeId() == null) {
             System.out.println("[Coordinator] REGISTER inválido");
@@ -71,7 +70,7 @@ public class CoordinatorServer {
         return policyManager.getPolicyJson();
     }
 
-    /** Permite atualizar política (ex.: via dashboard no futuro). Nesta fase apenas recarrega do ficheiro. */
+    /** Permite atualizar política  */
     public void reloadPolicy() {
         policyManager.reload();
     }
@@ -81,7 +80,7 @@ public class CoordinatorServer {
         eventLogStore.append(eventJsonLine);
     }
 
-    /** Acesso (só leitura) aos nós registados — útil no futuro para difundir mensagens. */
+    /** Nós registados — útil no futuro para difundir mensagens. */
     public Map<String, Socket> getRegisteredNodes() {
         return registeredNodes;
     }
