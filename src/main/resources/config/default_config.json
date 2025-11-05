@@ -1,0 +1,20 @@
+{
+  "simulation": {
+    "duration_seconds": 600,
+    "time_scale": 0.05,
+    "t_road": 5,
+    "t_sem": 1.5,
+    "t_yellow": 2,
+    "t_clearance": 1
+  },
+  "vehicle_types": {
+    "mota": { "factor": 0.5, "percentage": 25 },
+    "carro": { "factor": 1.0, "percentage": 60 },
+    "camiao": { "factor": 2.0, "percentage": 15 }
+  },
+  "arrival_rates": {
+    "E1": 0.4,
+    "E2": 0.3,
+    "E3": 0.35
+  }
+}
