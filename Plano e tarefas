@@ -399,8 +399,7 @@ Relatório final e métricas.
 
 ⚙️ Riscos e Mitigação
 
-Risco	                  Mitigação
---------
+Risco	                           Mitigação
 Falha de coordenador --------	Eleição distribuída
 Inconsistência -------- Sincronização eventual
 Bloqueios TCP --------	Timeouts e retry
