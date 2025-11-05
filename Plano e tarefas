@@ -400,11 +400,11 @@ Relatório final e métricas.
 | Semana            | Fases      | Membro A                  | Membro B                      | Entregáveis                 | Marco/Review           |
 | ----------------- | ---------- | ------------------------- | ----------------------------- | --------------------------- | ---------------------- |
 | **1 (28–1 nov)**  | Fase 0     | Modelos + JSON parsing    | Estrutura Maven + routes.json | Projeto compila             | Code Review JSON       |
-| **2 (4–8 nov)**   | Fase 1     | Coordinator TCP           | DashboardHub                  | Heartbeats visíveis         | Teste rede A↔B         |
-| **3 (11–15 nov)** | Fase 2     | LinkIO + sockets          | CrossingProcess               | Veículos dummy transferidos | Integração cruzamentos |
-| **4 (18–22 nov)** | Fase 3     | PhaseController           | Semaphores + QueueManager     | Fases e filas funcionais    | Teste local E2E        |
-| **5 (25–29 nov)** | Fases 4–5  | EntryGenerators + eventos | Receção e deslocação          | Veículos circulam           | Full path test         |
-| **6 (2–5 dez)**   | Fases 6–10 | Políticas + cenários      | Sink + dashboard + relatório  | Simulação completa          | Revisão final          |
+| **2 (3–8 nov)**   | Fase 1     | Coordinator TCP           | DashboardHub                  | Heartbeats visíveis         | Teste rede A↔B         |
+| **3 (10–15 nov)** | Fase 2     | LinkIO + sockets          | CrossingProcess               | Veículos dummy transferidos | Integração cruzamentos |
+| **4 (17–22 nov)** | Fase 3     | PhaseController           | Semaphores + QueueManager     | Fases e filas funcionais    | Teste local E2E        |
+| **5 (24–29 nov)** | Fases 4–5  | EntryGenerators + eventos | Receção e deslocação          | Veículos circulam           | Full path test         |
+| **6 (1–5 dez)**   | Fases 6–10 | Políticas + cenários      | Sink + dashboard + relatório  | Simulação completa          | Revisão final          |
 
 
 ⚙️ Riscos e Mitigação
