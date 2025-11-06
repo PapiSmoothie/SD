@@ -148,29 +148,40 @@ Referência: FP4 (Sockets) + FP3 (Threads)
 
 Criar LinkIO (canal TCP com retry e timeout).
 
-Criar VehicleTransfer (mensagem de movimento).
+Implementar broadcast de mensagens TELEMETRY recebidas para o DashboardHub (porta 5050).
+
+Criar VehicleTransfer (estrutura de mensagem para passagem de veículos entre cruzamentos).
 
 Gerir conexões entre cruzamentos.
+
+Manter logs centralizados em events.json.
 
 Script: start_crossingX.bat.
 
 🔹 Membro B
 
-Criar CrossingProcess:
+Criar CrossingProcess (nó TCP individual de cada cruzamento):
 
-Recebe veículo, espera t_sem, reenviando para o próximo.
+Recebe veículo, espera t_sem (tempo de semáforo), reenvia para o próximo.
 
-Thread por ligação TCP (ThreadPerConnection).
+Implementar ThreadPerConnection para gerir múltiplas ligações.
 
 Log de transações.
 
-🔹 Contrato A↔B
+Script: start_crossingX.bat
+
+🔹 Contrato A ↔ B (Crossing ↔ Coordinator)
+
+Mensagem de transferência de veículo:
+
 {"vehicleId": "V123", "from": "Cr1", "to": "Cr2", "time": 110.0}
 
-🔹 Aceitação
+🔹 Critérios de Aceitação (Fase 2)
 
-✅ Mensagens trocadas sem erros.
-✅ Sem bloqueios TCP.
+✅ Os Crossings ligam-se ao Coordinator e trocam mensagens sem erros.
+✅ O Coordinator recebe telemetria e difunde-a ao DashboardHub (broadcast).
+✅ O DashboardHub mostra em tempo real o estado dos cruzamentos.
+✅ Todos os sockets funcionam de forma concorrente, sem bloqueios TCP.
 
 -------------------------------------------------------------------------
 
