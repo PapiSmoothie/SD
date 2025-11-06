@@ -4,11 +4,9 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import sd.traffic.coordinator.models.RegisterRequest;
 import sd.traffic.common.ConfigLoader;
-
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
