@@ -17,7 +17,9 @@ public class TelemetryPayload {
     public void setCrossing(String crossing) { this.crossing = crossing; }
 
     public int getQueue() { return queue; }
-    public void setQueue(int queue) { this.queue = queue; }
+    public void setQueue(int queue) {
+        this.queue = Math.max(0, queue);
+    }
 
     public double getAvg() { return avg; }
     public void setAvg(double avg) { this.avg = avg; }

@@ -1,4 +1,7 @@
 {
+  "coordinator_port": 6000,
+  "logs_path": "src/main/resources/logs/events.json",
+
   "simulation": {
     "duration_seconds": 600,
     "time_scale": 0.05,
