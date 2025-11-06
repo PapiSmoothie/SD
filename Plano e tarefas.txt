@@ -1,0 +1,445 @@
+🧩 Projeto Final — Sistemas Distribuídos 2025/2026
+Simulação de Tráfego Urbano em Java (Processos + Threads + Sockets)
+
+Ambiente: Windows 10/11 · IntelliJ IDEA · Maven · JSON · Scripts .bat · GitHub
+Prazo final: 5 de dezembro de 2025
+
+-------------------------------------------------------------------------
+
+1️⃣. Enquadramento Teórico
+
+Objetivo geral:
+Desenvolver um sistema distribuído em Java que simula o tráfego urbano de uma cidade, aplicando conceitos de comunicação por sockets, sincronização entre threads, replicação, políticas adaptativas e consistência.
+
+Base teórica:
+
+FP1 – Introdução: sistemas distribuídos, comunicação, escalabilidade;
+
+FP2 – Arquiteturas: cliente-servidor, camadas, comunicação aberta;
+
+FP3 – Processos e Threads: criação, sincronização e exclusão mútua;
+
+FP4 – Comunicação: Sockets TCP/UDP e serialização JSON;
+
+FP5 – Sincronização: relógios lógicos, Berkeley, Lamport, Ricart & Agrawala;
+
+FP6 – Replicação e Consistência: modelos de atualização e consistência eventual;
+
+FP7 – RPC / Token Ring: eleição, coordenação e replicação distribuída.
+
+-------------------------------------------------------------------------
+
+2️⃣. Arquitetura Global
+Estrutura em camadas
+Camada	Função	Exemplos de classes
+Aplicação	Lógica de tráfego, políticas, dashboard	CoordinatorServer, CrossingProcess, PolicyManager
+Transporte	Comunicação entre processos	LinkIO, ClientHandler
+Dados	Modelos e JSONs de configuração	Vehicle, Event, Edge, ConfigLoader
+Processos principais
+
+CoordinatorServer → Coordena a simulação, políticas e relógio.
+
+CrossingProcess → Gere cruzamentos, filas e semáforos.
+
+DashboardHub → Mostra estado e métricas.
+
+EntryGenerator → Introduz veículos na rede.
+
+SinkProcess → Recolhe estatísticas de fim de percurso.
+
+Comunicação
+
+TCP (bidirecional e confiável).
+
+Mensagens JSON:
+
+{ "type": "Telemetry", "payload": { "crossing": "Cr1", "queue": 3, "avg": 2.5 } }
+
+
+Serialização via Gson; codificação UTF-8.
+
+3️⃣. Guia de Desenvolvimento (Fases 0–10)
+
+
+-------------------------------------------------------------------------
+
+🧱 Fase 0 — Alicerces e Contratos
+
+Objetivo: Base comum de dados, mensagens e ficheiros de configuração.
+Referência: FP2 (Arquiteturas) + FP4 (Mensagens e JSON)
+
+🔹 Membro A
+
+Criar pacote sd.traffic.common:
+
+Message, Vehicle, NodeId, Edge, Event
+
+Definir convenções de mensagens JSON (Telemetry, VehicleTransfer, PolicyUpdate).
+
+Criar policy_hybrid.json com parâmetros min/max/quotas.
+
+🔹 Membro B
+
+Criar estrutura Maven e diretórios padrão (src/main/java, src/main/resources).
+
+Implementar ConfigLoader e SimClock.
+
+Criar routes.json e default_config.json.
+
+Testar parsing de JSON (Gson).
+
+🔹 Contrato A↔B
+
+JSON base comum com "type" e "payload", UTF-8.
+Portas base: 5000 + idProcesso.
+
+🔹 Aceitação
+
+✅ mvn clean package sem erros.
+✅ Todos os ficheiros JSON lidos corretamente.
+
+-------------------------------------------------------------------------
+
+🧠 Fase 1 — Coordinator e DashboardHub
+
+Objetivo: Comunicação TCP base e centralização de controlo.
+Referência: FP4 (Sockets TCP)
+
+🔹 Membro A
+
+Implementar CoordinatorServer, ClientHandler, EventLogStore, PolicyManager.
+
+Suportar mensagens:
+
+REGISTER → registar cruzamento.
+
+POLICY_UPDATE → responder com política atual.
+
+EVENT_LOG → registar eventos.
+
+TELEMETRY → imprimir métricas e guardar logs.
+
+Gerar events.json com logs.
+
+🔹 Membro B
+
+Implementar DashboardHub (TCP Server) para receber e imprimir métricas.
+
+Exibir texto em consola (textual agora, Swing nas fases posteriores).
+
+Script: start_dashboard.bat.
+
+🔹 Contrato A↔B
+{"type": "Telemetry", "crossing": "Cr1", "queue": 4, "avg": 2.5, "lightState": "GREEN"}
+
+🔹 Aceitação
+
+✅ Crossings podem registar-se.
+✅ Dashboard recebe e mostra heartbeat.
+
+-------------------------------------------------------------------------
+
+🔗 Fase 2 — Crossings e Comunicação TCP
+
+Objetivo: Interligar cruzamentos e simular passagem de veículos.
+Referência: FP4 (Sockets) + FP3 (Threads)
+
+🔹 Membro A
+
+Criar LinkIO (canal TCP com retry e timeout).
+
+Criar VehicleTransfer (mensagem de movimento).
+
+Gerir conexões entre cruzamentos.
+
+Script: start_crossingX.bat.
+
+🔹 Membro B
+
+Criar CrossingProcess:
+
+Recebe veículo, espera t_sem, reenviando para o próximo.
+
+Thread por ligação TCP (ThreadPerConnection).
+
+Log de transações.
+
+🔹 Contrato A↔B
+{"vehicleId": "V123", "from": "Cr1", "to": "Cr2", "time": 110.0}
+
+🔹 Aceitação
+
+✅ Mensagens trocadas sem erros.
+✅ Sem bloqueios TCP.
+
+-------------------------------------------------------------------------
+
+🚦 Fase 3 — Semáforos e Filas
+
+Objetivo: Introduzir sincronização e controlo de tráfego.
+Referência: FP3B (Threads) + FP5 (Sincronização)
+
+🔹 Membro A
+
+Criar PhaseController: controla alternância entre fases (NS/EW).
+
+Implementar exclusão mútua (mutex global via Coordinator).
+
+Introduzir relógio lógico (Lamport clock).
+
+🔹 Membro B
+
+Implementar SemaphoreThread e QueueManager.
+
+Cada cruzamento tem:
+
+Thread por direção (N, S, E, O).
+
+Gestão de filas (ConcurrentLinkedQueue).
+
+Sincronização com wait() e notifyAll().
+
+Garantir que apenas um sentido está verde.
+
+🔹 Contrato A↔B
+{"crossing": "Cr1", "semaphore": "N", "state": "GREEN", "queue": 3}
+
+🔹 Aceitação
+
+✅ Mudanças de fase sem conflito.
+✅ Fila esvazia corretamente.
+
+-------------------------------------------------------------------------
+
+🛣️ Fase 4 — EntryGenerators e Rotas
+
+Objetivo: Introduzir veículos na rede com base em λ (Poisson).
+Referência: FP4 (Comunicação)
+
+🔹 Membro A
+
+Criar EntryGeneratorProcess (thread que envia veículos periodicamente).
+
+Ligar-se ao Coordinator.
+
+Definir taxa λ por entrada (E1–E3).
+
+🔹 Membro B
+
+Criar RouteSelector: lê routes.json e define percursos probabilísticos.
+
+Testar geração paralela com threads independentes.
+
+🔹 Contrato A↔B
+{"entry": "E1", "vehicleType": "carro", "path": ["E1","Cr1","Cr4","Cr5","S"]}
+
+🔹 Aceitação
+
+✅ Veículos gerados segundo λ.
+✅ Percursos válidos e concluídos.
+
+-------------------------------------------------------------------------
+
+⏱️ Fase 5 — Deslocação entre Nós
+
+Objetivo: Gerir tempo simulado e envio ordenado de mensagens.
+Referência: FP5 (Lamport e Berkeley)
+
+🔹 Membro A
+
+Usar SimClock para relógio global.
+
+Implementar Coordinator como time daemon (Berkeley).
+
+Enviar SEND_TO_NEXT e agendar RECEIVE_FROM_PREV.
+
+🔹 Membro B
+
+Receber veículos e colocá-los na fila local.
+
+Confirmar atraso correto (t_road * factor).
+
+🔹 Aceitação
+
+✅ Tempo entre nós coerente.
+✅ Eventos ordenados (Lamport clock).
+
+-------------------------------------------------------------------------
+
+🧮 Fase 6 — Políticas Adaptativas
+
+Objetivo: Adaptação de tempos conforme tráfego.
+Referência: FP6 (Replicação e Consistência)
+
+🔹 Membro A
+
+PolicyManager → primary replica.
+
+Atualiza tempos verdes/vermelhos conforme filas.
+
+Envia POLICY_UPDATE para cruzamentos.
+
+🔹 Membro B
+
+Aplica política localmente e confirma ACK.
+
+Implementa consistência eventual.
+
+Mantém última política ativa em cache.
+
+🔹 Aceitação
+
+✅ Políticas atualizam-se em tempo real.
+✅ Logs sincronizados.
+
+-------------------------------------------------------------------------
+
+🔁 Fase 7 — Sink e Estatísticas
+
+Objetivo: Recolher resultados e calcular métricas.
+Referência: FP6 (Consistência eventual)
+
+🔹 Membro A
+
+Criar SinkProcess (porta 6300).
+
+Receber veículos concluídos e calcular tempos médios.
+
+🔹 Membro B
+
+Enviar métricas periódicas ao Dashboard.
+
+Criar metrics_summary.json.
+
+🔹 Aceitação
+
+✅ Estatísticas corretas e consistentes.
+
+🧩 Fase 7.5 — Coordenação e Consistência Replicada
+
+Objetivo: Garantir continuidade após falhas.
+Referência: FP7 (Token Ring, Eleição)
+
+🔹 Membro A
+
+Implementar ElectionManager (Bully ou Token Ring).
+
+Substituir CoordinatorServer em caso de falha.
+
+🔹 Membro B
+
+Implementar ReplicaSync: sincroniza estado dos cruzamentos.
+
+Reintegra cruzamentos desconectados.
+
+🔹 Aceitação
+
+✅ Sistema recupera após falhas.
+✅ Réplicas atualizadas.
+
+-------------------------------------------------------------------------
+
+📊 Fase 8 — Dashboard Final
+
+Referência: FP2 (Camadas) + FP7 (RPC)
+
+🔹 Membro A
+
+Criar API TCP no DashboardHub para histórico.
+
+🔹 Membro B
+
+Interface JavaFX ou consola com mapa 3×3 e gráficos.
+
+Exportação CSV e refresh 2 Hz.
+
+🔹 Aceitação
+
+✅ Atualização contínua e exportação funcional.
+
+-------------------------------------------------------------------------
+
+
+🔬 Fase 9 — Cenários e Políticas
+
+Referência: FP1–FP6 (Experimentos distribuídos)
+
+🔹 Membro A
+
+Criar ScenarioRunner (executa low/medium/high load).
+
+🔹 Membro B
+
+Gerar gráficos e scenario_results.json.
+
+-------------------------------------------------------------------------
+
+
+🧱 Fase 10 — Testes e Entrega Final
+
+Objetivo: Garantir estabilidade total e integração completa.
+
+🔹 Membro A
+
+Scripts .bat para todos os processos.
+
+Testes de reconexão e timeouts.
+
+🔹 Membro B
+
+Testes de stress e concorrência.
+
+Relatório final e métricas.
+
+-------------------------------------------------------------------------
+
+
+🔧 Planeamento semanal 
+
+
+| Semana            | Fases      | Membro A                  | Membro B                      | Entregáveis                 | Marco/Review           |
+| ----------------- | ---------- | ------------------------- | ----------------------------- | --------------------------- | ---------------------- |
+| **1 (28–1 nov)**  | Fase 0     | Modelos + JSON parsing    | Estrutura Maven + routes.json | Projeto compila             | Code Review JSON       |
+| **2 (3–8 nov)**   | Fase 1     | Coordinator TCP           | DashboardHub                  | Heartbeats visíveis         | Teste rede A↔B         |
+| **3 (10–15 nov)** | Fase 2     | LinkIO + sockets          | CrossingProcess               | Veículos dummy transferidos | Integração cruzamentos |
+| **4 (17–22 nov)** | Fase 3     | PhaseController           | Semaphores + QueueManager     | Fases e filas funcionais    | Teste local E2E        |
+| **5 (24–29 nov)** | Fases 4–5  | EntryGenerators + eventos | Receção e deslocação          | Veículos circulam           | Full path test         |
+| **6 (1–5 dez)**   | Fases 6–10 | Políticas + cenários      | Sink + dashboard + relatório  | Simulação completa          | Revisão final          |
+
+
+⚙️ Riscos e Mitigação
+
+Risco	                           Mitigação
+Falha de coordenador --------	Eleição distribuída
+Inconsistência -------- Sincronização eventual
+Bloqueios TCP --------	Timeouts e retry
+Corridas ----------------	synchronized, wait/notify
+Divergência de política --------	Consistência sequencial
+
+
+✅ Entregáveis principais:
+
+Tipo	Ficheiro	Responsável
+Código	CoordinatorServer.java	A
+Código	CrossingProcess.java	B
+Código	PhaseController.java	A
+Código	SemaphoreThread.java	B
+Código	DashboardHub.java	B
+Config	policy_*.json, default_config.json	A/B
+Log	events.json, metrics_summary.json	A/B
+Script	start_*.bat	A/B
+
+
+🧠 Conclusão
+
+O plano aplica tudo o que foi lecionado nas fichas teóricas e práticas:
+
+Threads e sincronização (FP3, FP5)
+
+Sockets e comunicação (FP4)
+
+Relógios e consistência (FP5, FP6)
+
+Eleição e replicação (FP7)
+
+Cada fase introduz um conceito prático do curso, consolidando teoria e implementação realista.
