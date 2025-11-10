@@ -183,6 +183,26 @@ Mensagem de transferência de veículo:
 ✅ O DashboardHub mostra em tempo real o estado dos cruzamentos.
 ✅ Todos os sockets funcionam de forma concorrente, sem bloqueios TCP.
 
+
+Detalhes interessantes a adicionar:
+
+Registo de dashboards
+O Coordinator deve reconhecer quando um cliente é o Dashboard (por ex., REGISTER com "role": "dashboard").
+Assim, sabe para quem reenviar Telemetry.
+🔹 Atualização para fazer agora (Fase 2).
+
+Mensagem de Heartbeat / Ping
+Seria útil (para debug e estabilidade) cada CrossingProcess enviar um "HEARTBEAT" periódico.
+O Coordinator pode registar a última atualização de cada cruzamento.
+🔹 Opcional nesta fase, mas útil.
+
+Configuração de portas nos scripts
+Os .bat devem começar a incluir parâmetros (-Dexec.args) para poder iniciar múltiplos cruzamentos com IDs distintos.
+🔹 Implementar agora (Fase 2).
+
+Logs mais detalhados no EventLogStore
+Registar não só Telemetry, mas também REGISTER e VehicleTransfer.
+🔹 Pequena melhoria para fazer agora.
 -------------------------------------------------------------------------
 
 🚦 Fase 3 — Semáforos e Filas
