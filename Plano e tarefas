@@ -183,6 +183,211 @@ Mensagem de transferência de veículo:
 ✅ O DashboardHub mostra em tempo real o estado dos cruzamentos.
 ✅ Todos os sockets funcionam de forma concorrente, sem bloqueios TCP.
 
+
+⚠️ Detalhes interessantes a adicionar:
+
+Registo de dashboards
+O Coordinator deve reconhecer quando um cliente é o Dashboard (por ex., REGISTER com "role": "dashboard").
+Assim, sabe para quem reenviar Telemetry.
+🔹 Atualização para fazer agora (Fase 2).
+
+Mensagem de Heartbeat / Ping
+Seria útil (para debug e estabilidade) cada CrossingProcess enviar um "HEARTBEAT" periódico.
+O Coordinator pode registar a última atualização de cada cruzamento.
+🔹 Opcional nesta fase, mas útil.
+
+Configuração de portas nos scripts
+Os .bat devem começar a incluir parâmetros (-Dexec.args) para poder iniciar múltiplos cruzamentos com IDs distintos.
+🔹 Implementar agora (Fase 2).
+
+Logs mais detalhados no EventLogStore
+Registar não só Telemetry, mas também REGISTER e VehicleTransfer.
+🔹 Pequena melhoria para fazer agora.
+
+
+
+📘 Resumo para ajudar a entender e estudar o projeto:
+
+🔹 2.1. Classe LinkIO
+
+Pacote: sd.traffic.common
+Responsável: Membro A
+Função principal: encapsular a comunicação TCP entre processos, tornando o envio e a receção de mensagens simples, seguras e reutilizáveis.
+
+✳️ O que faz:
+
+Cria e gere uma ligação TCP (Socket) para um dado host e port;
+
+Fornece métodos de alto nível send() e receive() que trabalham diretamente com mensagens JSON;
+
+Implementa reconexão automática (retry) em caso de falha de rede;
+
+Define timeout para impedir bloqueios indefinidos na leitura;
+
+Usa codificação UTF-8 e serialização via Gson, garantindo compatibilidade entre todos os processos.
+
+✳️ O que contém:
+
+Atributos: Socket socket, PrintWriter out, BufferedReader in, String host, int port;
+
+Métodos:
+
+connect() — abre o socket, configura streams e tenta ligação com retry;
+
+send(Object msg) — envia objetos já serializados em JSON;
+
+receive() — bloqueia até receber uma linha JSON;
+
+close() — encerra a ligação de forma segura.
+
+✳️ Integração com fases anteriores:
+
+LinkIO não substitui diretamente o código interno do ClientHandler nem do DashboardHub (estes continuam a usar ServerSocket nesta fase),
+mas estabelece a camada comum de comunicação que será usada por processos clientes — nomeadamente CrossingProcess, EntryGenerator, e SinkProcess.
+
+✳️ Relação futura:
+
+Fases 3–5: garante comunicação TCP fiável e ordenada entre cruzamentos;
+
+Fases 6–7: servirá de base para replicação de políticas e sincronização distribuída;
+
+Fases 8–10: continuará a ser usado em todos os nós para simplificar a manutenção de ligações.
+
+
+🔹 2.2. Classe VehicleTransfer
+
+Pacote: sd.traffic.coordinator.models
+Responsável: Membro A
+Função principal: representar a transferência de um veículo entre cruzamentos na rede.
+
+✳️ O que faz:
+
+Define a estrutura padronizada da mensagem "VehicleTransfer";
+
+Garante compatibilidade JSON entre Coordinator e Crossings;
+
+Serve como payload para as mensagens de passagem de veículos.
+
+✳️ O que contém:
+
+Atributos:
+
+String vehicleId — identificador único do veículo;
+
+String from — cruzamento de origem;
+
+String to — cruzamento de destino;
+
+double time — instante ou duração da travessia.
+
+Métodos: construtores, getters/setters e toString() para logging.
+
+✳️ Integração com fases anteriores:
+
+Complementa a classe Vehicle (Fase 0), introduzindo a dimensão dinâmica do movimento.
+
+Vehicle representa o veículo; VehicleTransfer representa a ação de deslocação entre nós.
+
+✳️ Relação futura:
+
+Fase 4: usada pelos EntryGenerator para introduzir veículos na rede;
+
+Fase 5: utilizada na comunicação entre cruzamentos com controlo de tempo (SimClock);
+
+Fase 7: integrada nos logs do SinkProcess para calcular tempos de percurso.
+
+
+🔹 2.3. Classe CrossingProcess
+
+Pacote: sd.traffic.crossing
+Responsável: Membro B
+Função principal: representar um cruzamento como um processo TCP independente que se liga ao Coordinator e envia dados periódicos de telemetria.
+
+✳️ O que faz:
+
+Liga-se ao Coordinator usando LinkIO;
+
+Envia mensagem REGISTER com o seu identificador;
+
+Envia periodicamente mensagens Telemetry (número de veículos, estado da luz, média de espera, etc.);
+
+Pode enviar VehicleTransfer quando um veículo é transferido para outro cruzamento;
+
+Recebe POLICY_UPDATE e ajusta localmente os tempos de semáforo.
+
+✳️ O que contém:
+
+Atributos: String id, LinkIO link, Policy localPolicy, Queue<Vehicle>;
+
+Métodos:
+
+start() — inicia a ligação e as threads internas;
+
+sendRegister() — envia o REGISTER ao Coordinator;
+
+sendTelemetry() — envia métricas simuladas em intervalos regulares;
+
+handleMessages() — escuta respostas e atualizações do Coordinator.
+
+✳️ Integração com fases anteriores:
+
+Usa Message e Gson (Fase 0) para serialização;
+
+Lê parâmetros (p. ex. tempos de semáforo) de default_config.json via ConfigLoader;
+
+Liga-se ao CoordinatorServer (Fase 1) na porta 6000.
+
+✳️ Relação futura:
+
+Fase 3: adiciona threads internas (SemaphoreThread, QueueManager) para controlo de semáforos;
+
+Fases 4–5: passa a movimentar veículos reais entre cruzamentos;
+
+Fase 6: reage a POLICY_UPDATE;
+
+Fase 7: envia estatísticas ao SinkProcess.
+
+
+🔹 2.4. Atualização de CoordinatorServer
+
+Pacote: sd.traffic.coordinator
+Responsável: Membro A
+Função adicional: retransmitir mensagens Telemetry recebidas dos Crossings para o DashboardHub.
+
+✳️ Novas responsabilidades:
+
+Manter uma lista de dashboards ligados (Map<String, Socket>);
+
+Implementar broadcastTelemetry(String telemetryJson) para enviar dados a todos os Dashboards registados;
+
+Atualizar o ClientHandler para invocar esse broadcast sempre que recebe Telemetry.
+
+✳️ Integração com fases anteriores:
+
+Reutiliza o sistema multi-thread de ClientHandler (Fase 1);
+
+Continua a registar eventos no EventLogStore;
+
+Passa a atuar como hub central de difusão de telemetria, recebendo de múltiplos Crossings e reenviando ao DashboardHub.
+
+✳️ Relação futura:
+
+Fase 3: coordenará a sincronização dos tempos de semáforo;
+
+Fase 5: funcionará como time daemon (Berkeley Clock);
+
+Fase 6: gerirá a replicação e envio de POLICY_UPDATE.
+
+
+🔹 2.5. Scripts de execução
+
+Responsáveis: Membro A e Membro B
+
+start_coordinator.bat — arranca o CoordinatorServer (6000);
+
+start_dashboard.bat — arranca o DashboardHub (5050);
+
+start_crossingX.bat — arranca um CrossingProcess específico (ex.: Cr1).
 -------------------------------------------------------------------------
 
 🚦 Fase 3 — Semáforos e Filas
