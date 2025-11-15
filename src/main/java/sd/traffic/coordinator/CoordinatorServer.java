@@ -4,9 +4,13 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import sd.traffic.coordinator.models.RegisterRequest;
 import sd.traffic.common.ConfigLoader;
+
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -17,18 +21,19 @@ import java.util.Map;
  * - Aceita vários clientes (Crossings, Dashboard, Entry, Sink)
  * - Para cada ligação, lança uma Thread (ClientHandler)
  * - Mantém registo simples de nós registados (id -> Socket)
- *
- * Até agora: receber REGISTER, TELEMETRY, EVENT_LOG, responder a POLICY_UPDATE quando pedido.
+ * - Nesta fase: retransmite TELEMETRY recebida para todos os dashboards registados
  */
 public class CoordinatorServer {
 
-
     private final int port;
-
     private final Gson gson = new Gson();
 
-    /** Tabela de nós registados (nome -> socket). Protegida por Collections.synchronizedMap para simplicidade. */
+    /** Tabela de nós registados (Crossings, etc.). */
     private final Map<String, Socket> registeredNodes =
+            Collections.synchronizedMap(new HashMap<>());
+
+    /** Lista de Dashboards ligados — usada para broadcast de telemetria. */
+    private final Map<String, Socket> dashboards =
             Collections.synchronizedMap(new HashMap<>());
 
     /** Gestor de políticas: lê policy_hybrid.json e fornece JSON a enviar. */
@@ -42,7 +47,6 @@ public class CoordinatorServer {
     }
 
     public CoordinatorServer() {
-        // leitura de config externa (sem quebrar se a chave não existir).
         JsonObject cfg = ConfigLoader.load("src/main/resources/config/default_config.json");
         int cfgPort = 6000;
         String logPath = "src/main/resources/logs/events.json";
@@ -53,12 +57,9 @@ public class CoordinatorServer {
             }
             if (cfg.has("logs_path")) {
                 logPath = cfg.get("logs_path").getAsString();
-            } else {
-                // opcional: procurar em "simulation.logs_path"
-                if (cfg.has("simulation")) {
-                    JsonObject sim = cfg.getAsJsonObject("simulation");
-                    if (sim.has("logs_path")) logPath = sim.get("logs_path").getAsString();
-                }
+            } else if (cfg.has("simulation")) {
+                JsonObject sim = cfg.getAsJsonObject("simulation");
+                if (sim.has("logs_path")) logPath = sim.get("logs_path").getAsString();
             }
         } catch (Exception ignore) {
             // Mantém defaults se algo não existir/for inválido
@@ -68,6 +69,7 @@ public class CoordinatorServer {
         this.eventLogStore = new EventLogStore(logPath);
     }
 
+    /** Inicia o servidor principal (multi-thread). */
     public void start() {
         System.out.println("[Coordinator] A iniciar na porta " + port + " ...");
         try (ServerSocket serverSocket = new ServerSocket(port)) {
@@ -75,7 +77,6 @@ public class CoordinatorServer {
             while (true) {
                 Socket socket = serverSocket.accept();
                 System.out.println("[Coordinator] Nova ligação de " + socket.getRemoteSocketAddress());
-                // Lançar uma thread por cliente
                 new ClientHandler(socket, this).start();
             }
         } catch (IOException e) {
@@ -84,22 +85,42 @@ public class CoordinatorServer {
         }
     }
 
-    /** Regista um nó */
+    /** Regista um nó (Crossing ou Dashboard). */
     public void onRegister(RegisterRequest req, Socket socket) {
         if (req == null || req.getNodeId() == null) {
             System.out.println("[Coordinator] REGISTER inválido");
             return;
         }
 
-        // encerrar sockets duplicados para o mesmo nodeId
-        Socket prev = registeredNodes.put(req.getNodeId(), socket);
-        if (prev != null && !prev.isClosed()) {
-            try {
-                prev.close();
-            } catch (IOException ignore) { /* nada */ }
+        String id = req.getNodeId();
+        // Distinguir tipo de nó pelo ID (ex: "DashboardHub")
+        if (id.toLowerCase().contains("dashboard")) {
+            dashboards.put(id, socket);
+            System.out.println("[Coordinator] Dashboard registado -> " + id);
+        } else {
+            Socket prev = registeredNodes.put(id, socket);
+            if (prev != null && !prev.isClosed()) {
+                try {
+                    prev.close();
+                } catch (IOException ignore) { }
+            }
+            System.out.println("[Coordinator] Crossing registado -> " + id);
         }
+    }
 
-        System.out.println("[Coordinator] REGISTER OK -> " + req.getNodeId());
+    /** Broadcast de telemetria recebida aos dashboards. */
+    public void broadcastTelemetry(String telemetryJson) {
+        synchronized (dashboards) {
+            for (Map.Entry<String, Socket> entry : dashboards.entrySet()) {
+                try {
+                    PrintWriter out = new PrintWriter(
+                            new OutputStreamWriter(entry.getValue().getOutputStream(), StandardCharsets.UTF_8), true);
+                    out.println(telemetryJson);
+                } catch (IOException e) {
+                    System.err.println("[Coordinator] Falha ao enviar telemetria a " + entry.getKey());
+                }
+            }
+        }
     }
 
     /** Pede a política atual em JSON (carregada do ficheiro). */
@@ -107,12 +128,12 @@ public class CoordinatorServer {
         return policyManager.getPolicyJson();
     }
 
-    /** Permite atualizar política  */
+    /** Permite atualizar política. */
     public void reloadPolicy() {
         policyManager.reload();
     }
 
-    /** Append do evento recebido ao ficheiro de logs. */
+    /** Regista evento em ficheiro. */
     public void appendEvent(String eventJsonLine) {
         eventLogStore.append(eventJsonLine);
     }
@@ -120,5 +141,9 @@ public class CoordinatorServer {
     /** Nós registados — útil no futuro para difundir mensagens. */
     public Map<String, Socket> getRegisteredNodes() {
         return registeredNodes;
+    }
+
+    public Map<String, Socket> getDashboards() {
+        return dashboards;
     }
 }

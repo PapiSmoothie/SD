@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
  *  - Lê linhas JSON do cliente
  *  - Trata: REGISTER, TELEMETRY, EVENT_LOG, POLICY_UPDATE
  *  - Responde com JSON em linha única
+ *  - A partir da Fase 2: reencaminha TELEMETRY para os Dashboards
  */
 public class ClientHandler extends Thread {
 
@@ -70,12 +71,18 @@ public class ClientHandler extends Thread {
                             TelemetryPayload tel = gson.fromJson(gson.toJson(base.getPayload()), TelemetryPayload.class);
                             System.out.println("[Telemetry] " + tel);
 
-                            server.appendEvent(gson.toJson(new EventLogEntry(
+                            String telemetryJson = gson.toJson(new EventLogEntry(
                                     "TELEMETRY",
                                     0.0,
                                     tel.getCrossing(),
                                     gson.toJson(tel)
-                            )));
+                            ));
+
+                            // Guarda no log
+                            server.appendEvent(telemetryJson);
+
+                            // Reencaminha para Dashboards
+                            server.broadcastTelemetry(gson.toJson(new Message<>("Telemetry", tel)));
 
                             sendOk(out, "TELEMETRY_OK");
                             break;
