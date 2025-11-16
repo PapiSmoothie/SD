@@ -50,7 +50,7 @@ public class DashboardHub {
             while (true) {
                 String line = link.receive();
                 if (line == null) {
-                    continue; // timeout ou linha vazia
+                    break;
                 }
 
                 Message<?> msg = gson.fromJson(line, Message.class);

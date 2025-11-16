@@ -95,9 +95,16 @@ public class CoordinatorServer {
         String id = req.getNodeId();
         // Distinguir tipo de nó pelo ID (ex: "DashboardHub")
         if (id.toLowerCase().contains("dashboard")) {
-            dashboards.put(id, socket);
+            Socket prev = dashboards.put(id, socket);
+            if (prev != null && !prev.isClosed()) {
+                try {
+                    prev.close();
+                } catch (IOException ignore) { }
+            }
             System.out.println("[Coordinator] Dashboard registado -> " + id);
+
         } else {
+
             Socket prev = registeredNodes.put(id, socket);
             if (prev != null && !prev.isClosed()) {
                 try {
