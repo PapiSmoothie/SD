@@ -2,10 +2,13 @@ package sd.traffic.coordinator;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import sd.traffic.common.Event;
 import sd.traffic.coordinator.models.EventLogEntry;
 import sd.traffic.coordinator.models.RegisterRequest;
 import sd.traffic.coordinator.models.TelemetryPayload;
+import sd.traffic.coordinator.models.VehicleTransfer;
 import sd.traffic.common.Message;
+
 
 import java.io.*;
 import java.net.Socket;
