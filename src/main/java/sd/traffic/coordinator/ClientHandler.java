@@ -6,6 +6,7 @@ import sd.traffic.coordinator.models.EventLogEntry;
 import sd.traffic.coordinator.models.RegisterRequest;
 import sd.traffic.coordinator.models.TelemetryPayload;
 import sd.traffic.common.Message;
+import sd.traffic.coordinator.models.VehicleTransfer;
 
 import java.io.*;
 import java.net.Socket;
@@ -16,6 +17,7 @@ import java.nio.charset.StandardCharsets;
  *  - Lê linhas JSON do cliente
  *  - Trata: REGISTER, TELEMETRY, EVENT_LOG, POLICY_UPDATE
  *  - Responde com JSON em linha única
+ *  - A partir da Fase 2: reencaminha TELEMETRY para os Dashboards
  */
 public class ClientHandler extends Thread {
 
@@ -59,6 +61,11 @@ public class ClientHandler extends Thread {
                             RegisterRequest req = gson.fromJson(gson.toJson(base.getPayload()), RegisterRequest.class);
                             server.onRegister(req, socket);
 
+                            JsonObject regLog = new JsonObject();
+                            regLog.addProperty("type", "REGISTER");
+                            regLog.addProperty("nodeId", req.getNodeId());
+                            server.appendEvent(regLog.toString());
+
                             JsonObject ok = new JsonObject();
                             ok.addProperty("status", "OK");
                             ok.addProperty("msg", "REGISTER_OK");
@@ -70,12 +77,18 @@ public class ClientHandler extends Thread {
                             TelemetryPayload tel = gson.fromJson(gson.toJson(base.getPayload()), TelemetryPayload.class);
                             System.out.println("[Telemetry] " + tel);
 
-                            server.appendEvent(gson.toJson(new EventLogEntry(
+                            String telemetryJson = gson.toJson(new EventLogEntry(
                                     "TELEMETRY",
                                     0.0,
                                     tel.getCrossing(),
                                     gson.toJson(tel)
-                            )));
+                            ));
+
+                            // Guarda no log
+                            server.appendEvent(telemetryJson);
+
+                            // Reencaminha para Dashboards
+                            server.broadcastTelemetry(gson.toJson(new Message<>("Telemetry", tel)));
 
                             sendOk(out, "TELEMETRY_OK");
                             break;
@@ -91,6 +104,21 @@ public class ClientHandler extends Thread {
                         case "POLICY_UPDATE": {
                             String policyJson = server.getCurrentPolicyJson();
                             out.println(gson.toJson(new Message<>("POLICY", policyJson)));
+                            break;
+                        }
+
+                        case "VehicleTransfer": {
+                            VehicleTransfer vt = gson.fromJson(gson.toJson(base.getPayload()), VehicleTransfer.class);
+
+                            server.appendEvent(gson.toJson(vt));
+
+                            JsonObject okV = new JsonObject();
+                            okV.addProperty("status", "VEHICLE_TRANSFER_OK");
+                            okV.addProperty("from", vt.getFrom());
+                            okV.addProperty("to", vt.getTo());
+                            okV.addProperty("vehicle", vt.getVehicleId());
+                            sendOk(out, okV);
+
                             break;
                         }
 
