@@ -27,8 +27,13 @@ public class EventLogStore {
 
     public synchronized void append(String jsonLine) {
         try (FileWriter fw = new FileWriter(path, true)) {
-            fw.write(jsonLine.trim());
+
+            jsonLine = jsonLine == null ? "" : jsonLine.trim();
+            if (jsonLine.isEmpty()) return;
+
+            fw.write(jsonLine);
             fw.write(System.lineSeparator());
+
         } catch (IOException e) {
             System.err.println("[EventLogStore] Erro a escrever em " + path + ": " + e.getMessage());
         }

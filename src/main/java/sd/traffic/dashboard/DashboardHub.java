@@ -42,6 +42,7 @@ public class DashboardHub {
             // Enviar REGISTER (construtor correto!)
             RegisterRequest reg = new RegisterRequest();
             reg.setNodeId("DashboardHub");
+            reg.setRole("dashboard");
 
             link.send(new Message<>("REGISTER", reg));
             System.out.println("[DashboardHub] Sent REGISTER");

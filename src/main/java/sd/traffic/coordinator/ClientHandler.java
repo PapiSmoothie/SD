@@ -6,6 +6,7 @@ import sd.traffic.coordinator.models.EventLogEntry;
 import sd.traffic.coordinator.models.RegisterRequest;
 import sd.traffic.coordinator.models.TelemetryPayload;
 import sd.traffic.common.Message;
+import sd.traffic.coordinator.models.VehicleTransfer;
 
 import java.io.*;
 import java.net.Socket;
@@ -60,6 +61,11 @@ public class ClientHandler extends Thread {
                             RegisterRequest req = gson.fromJson(gson.toJson(base.getPayload()), RegisterRequest.class);
                             server.onRegister(req, socket);
 
+                            JsonObject regLog = new JsonObject();
+                            regLog.addProperty("type", "REGISTER");
+                            regLog.addProperty("nodeId", req.getNodeId());
+                            server.appendEvent(regLog.toString());
+
                             JsonObject ok = new JsonObject();
                             ok.addProperty("status", "OK");
                             ok.addProperty("msg", "REGISTER_OK");
@@ -98,6 +104,21 @@ public class ClientHandler extends Thread {
                         case "POLICY_UPDATE": {
                             String policyJson = server.getCurrentPolicyJson();
                             out.println(gson.toJson(new Message<>("POLICY", policyJson)));
+                            break;
+                        }
+
+                        case "VehicleTransfer": {
+                            VehicleTransfer vt = gson.fromJson(gson.toJson(base.getPayload()), VehicleTransfer.class);
+
+                            server.appendEvent(gson.toJson(vt));
+
+                            JsonObject okV = new JsonObject();
+                            okV.addProperty("status", "VEHICLE_TRANSFER_OK");
+                            okV.addProperty("from", vt.getFrom());
+                            okV.addProperty("to", vt.getTo());
+                            okV.addProperty("vehicle", vt.getVehicleId());
+                            sendOk(out, okV);
+
                             break;
                         }
 

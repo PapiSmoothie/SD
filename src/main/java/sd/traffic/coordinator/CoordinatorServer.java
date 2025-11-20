@@ -46,6 +46,7 @@ public class CoordinatorServer {
         new CoordinatorServer().start();
     }
 
+
     public CoordinatorServer() {
         JsonObject cfg = ConfigLoader.load("src/main/resources/config/default_config.json");
         int cfgPort = 6000;
@@ -93,8 +94,12 @@ public class CoordinatorServer {
         }
 
         String id = req.getNodeId();
+
+        String role = req.getRole();
+        boolean isDashboard = role != null && role.equalsIgnoreCase("dashboard");
+
         // Distinguir tipo de nó pelo ID (ex: "DashboardHub")
-        if (id.toLowerCase().contains("dashboard")) {
+        if (isDashboard){
             Socket prev = dashboards.put(id, socket);
             if (prev != null && !prev.isClosed()) {
                 try {
